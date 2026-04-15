@@ -1,2 +1,3 @@
 seed/*.sql
 seed/*.sh
+.sqlfluff
