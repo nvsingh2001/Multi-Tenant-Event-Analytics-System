@@ -1,3 +1,4 @@
 seed/*.sql
 seed/*.sh
 .sqlfluff
+*docx
