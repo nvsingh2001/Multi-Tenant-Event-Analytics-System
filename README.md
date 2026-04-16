@@ -92,6 +92,3 @@ Restore and verify integrity:
 ```bash
 bash scripts/restore.sh backups/full_...dump
 ```
-
-## ⚖️ License
-MIT
