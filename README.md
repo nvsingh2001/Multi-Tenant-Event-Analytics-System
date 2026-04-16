@@ -2,6 +2,8 @@
 
 A high-performance, scalable PostgreSQL-based analytics engine designed for multi-tenant applications. This system handles millions of events with strict tenant isolation, automated data lifecycle management, and real-time analytical insights.
 
+![Database ERD](ERD.png)
+
 ## 🚀 Features
 
 -   **Multi-Tenancy & Security:** Row Level Security (RLS) ensures that tenants can only access their own data.
