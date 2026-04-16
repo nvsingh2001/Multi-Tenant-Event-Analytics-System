@@ -1,0 +1,26 @@
+# Multi-Tenant Event Analytics Maintenance
+PGPASSFILE=/home/ares/.pgpass
+DB_NAME=MultitenantEventAnalyticsDB
+BACKUP_DIR=/home/ares/projects/BridgeLabz/multitenant-event-analytics/backups
+SCRIPT_DIR=/home/ares/projects/BridgeLabz/multitenant-event-analytics/scripts
+
+# Full backup — every Sunday at 00:30
+30 0 * * 0  bash $SCRIPT_DIR/backup.sh full >> $BACKUP_DIR/cron.log 2>&1
+
+# Schema-only backup — daily at 00:15
+15 0 * * *  bash $SCRIPT_DIR/backup.sh schema >> $BACKUP_DIR/cron.log 2>&1
+
+# Create partitions — 1st of month at 00:00
+0 0 1 * *   psql -d $DB_NAME -c "SELECT create_upcoming_partitions(3);" >> $BACKUP_DIR/cron.log 2>&1
+
+# Run lifecycle — 1st of month at 03:00
+0 3 1 * *   psql -d $DB_NAME -c "SELECT run_lifecycle(12, TRUE, FALSE);" >> $BACKUP_DIR/cron.log 2>&1
+
+# Refresh daily views — daily at 01:00
+0 1 * * *   psql -d $DB_NAME -c "CALL refresh_daily_views();" >> $BACKUP_DIR/cron.log 2>&1
+
+# Refresh weekly views — Monday at 02:00
+0 2 * * 1   psql -d $DB_NAME -c "CALL refresh_weekly_views();" >> $BACKUP_DIR/cron.log 2>&1
+
+# Purge dedup log — hourly
+0 * * * *   psql -d $DB_NAME -c "CALL purge_dedup_log(48);" >> $BACKUP_DIR/cron.log 2>&1
