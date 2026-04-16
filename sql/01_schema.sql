@@ -1,13 +1,9 @@
--- Extensions
--- sqlfluff: disable
+-- 01_schema.sql: Core Tables and Views
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- GIN trigram indexes for text search
--- sqlfluff: enable
--- Tenants: Stores organization info
+-- Tenants: Organization data
 CREATE TABLE tenants (
     tenant_id uuid PRIMARY KEY DEFAULT gen_random_uuid (),
     name text NOT NULL,
@@ -18,7 +14,7 @@ CREATE TABLE tenants (
     updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
--- Users: End-users within a tenant
+-- Users: End-users belonging to a tenant
 CREATE TABLE users (
     tenant_id uuid NOT NULL REFERENCES tenants (tenant_id) ON DELETE CASCADE,
     user_id text NOT NULL,
@@ -31,7 +27,7 @@ CREATE TABLE users (
     PRIMARY KEY (tenant_id, user_id)
 );
 
--- Events: Partitioned high-volume event store
+-- Events: Partitioned high-volume store
 CREATE TABLE events (
     event_id uuid NOT NULL DEFAULT gen_random_uuid (),
     tenant_id uuid NOT NULL,
@@ -52,7 +48,7 @@ CREATE TABLE event_dedup (
     received_at timestamptz NOT NULL DEFAULT NOW()
 );
 
--- Materialized Views for reporting
+-- DAU Materialized View
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_daily_active_users AS
 SELECT
     tenant_id,
@@ -61,11 +57,10 @@ SELECT
 FROM
     events
 GROUP BY
-    tenant_id,
-    DATE(event_time AT TIME ZONE 'UTC'
-)
-    WITH NO DATA;
+    1,
+    2 WITH NO DATA;
 
+-- Revenue Summary Materialized View
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_revenue_summary AS
 SELECT
     tenant_id,
@@ -78,12 +73,10 @@ WHERE
     event_name = 'purchase'
     AND properties ->> 'amount' IS NOT NULL
 GROUP BY
-    tenant_id,
-    DATE(event_time AT TIME ZONE 'UTC'
-)
-    WITH NO DATA;
+    1,
+    2 WITH NO DATA;
 
--- Monthly partitions for 2026
+-- 2026 Monthly Partitions
 CREATE TABLE events_2026_01 PARTITION OF events
 FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
 
@@ -137,7 +130,7 @@ CREATE UNIQUE INDEX idx_mv_dau_pk ON mv_daily_active_users (tenant_id, event_dat
 
 CREATE UNIQUE INDEX idx_mv_revenue_pk ON mv_revenue_summary (tenant_id, event_date);
 
--- Row Level Security (RLS)
+-- Security (RLS)
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;

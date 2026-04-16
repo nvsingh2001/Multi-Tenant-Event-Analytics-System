@@ -1,4 +1,5 @@
--- Creates a monthly partition if it doesn't already exist
+-- 02_partitioning.sql: Dynamic Partition Management
+-- Creates a monthly partition if missing.
 CREATE OR REPLACE FUNCTION create_monthly_partition (p_year int, p_month int)
     RETURNS VOID
     LANGUAGE plpgsql
@@ -25,7 +26,7 @@ END IF;
 END;
 $$;
 
--- Pre-creates partitions for upcoming months
+-- Pre-creates partitions for upcoming months.
 CREATE OR REPLACE FUNCTION create_upcoming_partitions (p_months_ahead int DEFAULT 3)
     RETURNS VOID
     LANGUAGE plpgsql
@@ -42,7 +43,7 @@ BEGIN
 END;
 $$;
 
--- Drops partitions older than specified retention
+-- Drops partitions older than retention window.
 CREATE OR REPLACE FUNCTION drop_old_partitions (p_retain_months int DEFAULT 12, p_dry_run bool DEFAULT FALSE)
     RETURNS TABLE (
         dropped_partition text,
@@ -62,35 +63,35 @@ BEGIN
         c.relname AS partition_name
     FROM
         pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_inherits i ON i.inhrelid = c.oid
         JOIN pg_class p ON p.oid = i.inhparent
     WHERE
         p.relname = 'events'
         AND c.relname ~ '^events_\d{4}_\d{2}$'
-        AND n.nspname = current_schema()
     ORDER BY
-        c.relname LOOP
+        1 LOOP
             v_part_year := SPLIT_PART(v_rec.partition_name, '_', 2)::int;
             v_part_month := SPLIT_PART(v_rec.partition_name, '_', 3)::int;
             v_part_date := DATE(FORMAT('%s-%s-01', v_part_year, LPAD(v_part_month::text, 2, '0')));
             IF v_part_date < v_cutoff THEN
                 IF p_dry_run THEN
-                    dropped_partition := v_rec.partition_name;
-                    action := 'DRY RUN';
-                    RETURN NEXT;
+                    RETURN QUERY
+                    SELECT
+                        v_rec.partition_name,
+                        'DRY RUN'::text;
                 ELSE
                     EXECUTE FORMAT('DROP TABLE IF EXISTS %I', v_rec.partition_name);
-                    dropped_partition := v_rec.partition_name;
-                    action := 'DROPPED';
-                    RETURN NEXT;
+                    RETURN QUERY
+                    SELECT
+                        v_rec.partition_name,
+                        'DROPPED'::text;
                 END IF;
             END IF;
         END LOOP;
 END;
 $$;
 
--- List current partitions
+-- Lists current partitions and ranges.
 CREATE OR REPLACE FUNCTION list_partitions ()
     RETURNS TABLE (
         partition_name text,
@@ -105,17 +106,15 @@ CREATE OR REPLACE FUNCTION list_partitions ()
         c.reltuples::bigint
     FROM
         pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
         JOIN pg_inherits i ON i.inhrelid = c.oid
         JOIN pg_class p ON p.oid = i.inhparent
     WHERE
         p.relname = 'events'
-        AND n.nspname = current_schema()
     ORDER BY
-        c.relname;
+        1;
 $$;
 
--- Initial bootstrap
+-- Bootstrap: Create next 3 months.
 SELECT
     create_upcoming_partitions (3);
 

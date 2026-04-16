@@ -1,4 +1,5 @@
--- Ingests a single event with deduplication
+-- 04_ingestion.sql: Event Ingestion Procedures
+-- Ingests single event with deduplication.
 CREATE OR REPLACE PROCEDURE ingest_event (p_event_id uuid, p_tenant_id uuid, p_user_id text, p_event_name text, p_event_time timestamptz, p_properties jsonb DEFAULT '{}', p_session_id text DEFAULT NULL)
 LANGUAGE plpgsql
 AS $$
@@ -18,7 +19,7 @@ EXCEPTION
 END;
 $$;
 
--- Ingests a batch of events
+-- Ingests a batch of events efficiently.
 CREATE OR REPLACE PROCEDURE ingest_event_batch (p_events jsonb[], OUT p_inserted int, OUT p_skipped int)
 LANGUAGE plpgsql
 AS $$
@@ -69,16 +70,13 @@ EXCEPTION
 END;
 $$;
 
--- Purges old deduplication logs
+-- Clears old deduplication logs.
 CREATE OR REPLACE PROCEDURE purge_dedup_log (p_retain_hours int DEFAULT 48)
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    v_deleted int;
 BEGIN
     DELETE FROM event_dedup
     WHERE received_at < NOW() - (p_retain_hours || ' hours')::interval;
-    GET DIAGNOSTICS v_deleted = ROW_COUNT;
 END;
 $$;
 

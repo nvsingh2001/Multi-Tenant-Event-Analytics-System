@@ -1,4 +1,5 @@
--- Updates updated_at column to current timestamp
+-- 03_triggers.sql: Automatic Data Maintenance Triggers
+-- Updates updated_at on change.
 CREATE OR REPLACE FUNCTION fn_set_updated_at ()
     RETURNS TRIGGER
     LANGUAGE plpgsql
@@ -16,7 +17,7 @@ CREATE TRIGGER trg_tenants_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION fn_set_updated_at ();
 
--- Maintains users first/last seen times based on events
+-- Syncs user activity based on incoming events.
 CREATE OR REPLACE FUNCTION fn_sync_user_activity ()
     RETURNS TRIGGER
     LANGUAGE plpgsql
@@ -39,7 +40,7 @@ CREATE TRIGGER trg_sync_user_activity
     FOR EACH ROW
     EXECUTE FUNCTION fn_sync_user_activity ();
 
--- Basic validation for events before insertion
+-- Validates event payload before insert.
 CREATE OR REPLACE FUNCTION fn_validate_event_payload ()
     RETURNS TRIGGER
     LANGUAGE plpgsql

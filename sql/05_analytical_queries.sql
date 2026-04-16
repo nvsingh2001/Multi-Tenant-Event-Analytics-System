@@ -1,4 +1,5 @@
--- Daily Active Users (DAU) from MV
+-- 05_analytical_queries.sql: Basic Metrics & Funnels
+-- DAU from Materialized View
 SELECT
     t.name AS tenant_name,
     m.event_date,
@@ -9,7 +10,7 @@ FROM
 ORDER BY
     m.event_date DESC;
 
--- Raw DAU query for real-time data
+-- Real-time DAU (unaggregated)
 SELECT
     t.name AS tenant_name,
     DATE(e.event_time AT TIME ZONE 'UTC') AS event_date,
@@ -18,10 +19,10 @@ FROM
     events e
     JOIN tenants t ON t.tenant_id = e.tenant_id
 GROUP BY
-    t.name,
-    event_date
+    1,
+    2
 ORDER BY
-    event_date DESC;
+    2 DESC;
 
 -- 7-day rolling average DAU
 SELECT
@@ -32,10 +33,10 @@ SELECT
 FROM
     mv_daily_active_users
 ORDER BY
-    tenant_id,
-    event_date DESC;
+    1,
+    2 DESC;
 
--- Funnel Analysis: signup -> add_to_cart -> purchase
+-- Funnel: signup -> add_to_cart -> purchase
 WITH step1 AS (
     SELECT DISTINCT
         tenant_id,
@@ -79,7 +80,7 @@ FROM
         LEFT JOIN step2 s2 ON s2.tenant_id = t.tenant_id
         LEFT JOIN step3 s3 ON s3.tenant_id = t.tenant_id
     GROUP BY
-        t.name
+        1
 )
 SELECT
     tenant_name,
@@ -93,7 +94,7 @@ FROM
 ORDER BY
     stage1 DESC;
 
--- Retention Analysis (Day 1 and Day 7)
+-- Weekly Retention (Day 1 and Day 7)
 WITH cohort_base AS (
     SELECT
         tenant_id,
@@ -122,7 +123,7 @@ day1 AS (
             WHERE
                 e.tenant_id = u.tenant_id
                 AND e.user_id = u.user_id
-                AND DATE(e.event_time) = (u.first_seen_at::date + INTERVAL '1 day'))
+                AND DATE(e.event_time) = (u.first_seen_at::date + 1))
 ),
 day7 AS (
     SELECT DISTINCT
@@ -142,7 +143,7 @@ day7 AS (
             WHERE
                 e.tenant_id = u.tenant_id
                 AND e.user_id = u.user_id
-                AND DATE(e.event_time) = (u.first_seen_at::date + INTERVAL '7 days')))
+                AND DATE(e.event_time) = (u.first_seen_at::date + 7)))
 SELECT
     t.name AS tenant_name,
     c.cohort_week,
@@ -157,8 +158,8 @@ FROM
     LEFT JOIN day7 d7 ON d7.tenant_id = c.tenant_id
         AND d7.user_id = c.user_id
 GROUP BY
-    t.name,
-    c.cohort_week
+    1,
+    2
 ORDER BY
-    c.cohort_week DESC;
+    2 DESC;
 
